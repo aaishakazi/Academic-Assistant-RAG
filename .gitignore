@@ -1,0 +1,13 @@
+# Python
+venv/
+__pycache__/
+*.py[cod]
+
+# Local Databases (Crucial: Don't upload your private data)
+chroma_db/
+
+# Environment Variables (For your API keys later)
+.env
+
+# Large Files
+*.pdf
