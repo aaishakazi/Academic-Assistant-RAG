@@ -1,9 +1,8 @@
-# Academic-Assistant
-A Retrieval-Augmented Generation (RAG) system designed to provide accurate, context-aware answers for my college notes. Built with LangChain, ChromaDB, and Hugging Face Embeddings to eliminate AI hallucinations and ensure source-backed responses.
-
 # 🎓 Academic AI — Production-Grade Academic RAG Assistant
 
 Academic AI is a sophisticated Retrieval-Augmented Generation (RAG) platform designed to transform dense academic documents (PDFs, textbook chapters, lecture notes) into interactive, context-aware chat companions.
+
+A Retrieval-Augmented Generation (RAG) system designed to provide accurate, context-aware answers for my college notes. Built with LangChain, ChromaDB, and Hugging Face Embeddings to eliminate AI hallucinations and ensure source-backed responses.
 
 Instead of simply forwarding prompts to an LLM, this platform orchestrates a complete multi-stage RAG pipeline involving semantic chunking, vector embedding generation, contextual retrieval, prompt orchestration, and low-latency inference to deliver grounded, hallucination-resistant academic answers.
 
