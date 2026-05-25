@@ -1,5 +1,5 @@
 
- 🎓 Academic AI — Production-Grade Academic RAG Assistant
+### 🎓 Academic AI — Production-Grade Academic RAG Assistant ###
 
 Academic AI is a sophisticated Retrieval-Augmented Generation (RAG) platform designed to transform dense academic documents (PDFs, textbook chapters, lecture notes) into interactive, context-aware chat companions.
 
@@ -11,7 +11,7 @@ Instead of simply forwarding prompts to an LLM, this platform orchestrates a com
 ## 📸 Application Preview
 
 <p align="center">
-  <img src="/assets/app-preview.png" width="100%" alt="Academic AI Screenshot"/>
+  <img src="assets/app-preview.png" width="100%" alt="Academic AI Screenshot"/>
 </p>
 
 <p align="center">
