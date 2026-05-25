@@ -11,11 +11,11 @@ Instead of simply forwarding prompts to an LLM, this platform orchestrates a com
 ## 📸 Application Preview
 
 <p align="center">
-  <img src="assets/app-preview.png" width="100%" alt="Academic AI Screenshot"/>
+  <img src="src/assets/app-preview.png" width="100%" alt="Academic AI Screenshot"/>
 </p>
 
 <p align="center">
-  <video src="https://github.com/user-attachments/assets/11378e05-c7fa-40c9-8bc1-7c3e7a3b3254" width="100%" autoplay loop muted playsinline></video>
+  <video src="https://github.com/user-attachments/assets/11378e05-c7fa-40c9-8bc1-7c3e7a3b3254" width="100%" autoplay loop muted></video>
 </p>
 
 ---
@@ -23,7 +23,11 @@ Instead of simply forwarding prompts to an LLM, this platform orchestrates a com
 ## 🚀 Live Demo
 
 🔗 **Try the App Here:**  
-https://academic-assistant-rag-ouddaajucgs7vvr3ax44ww.streamlit.app/
+<p align="center">
+    <img src="" width="100%">
+    <a href="https://academic-assistant-rag-ouddaajucgs7vvr3ax44ww.streamlit.app/"></a>
+</p>
+
 
 ---
 
