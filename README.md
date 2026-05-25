@@ -7,15 +7,10 @@ A Retrieval-Augmented Generation (RAG) system designed to provide accurate, cont
 Instead of simply forwarding prompts to an LLM, this platform orchestrates a complete multi-stage RAG pipeline involving semantic chunking, vector embedding generation, contextual retrieval, prompt orchestration, and low-latency inference to deliver grounded, hallucination-resistant academic answers.
 
 ---
+## 📸 Application Preview
 
 <p align="center">
   <img src="./assets/app-preview.png" width="100%" alt="Academic AI Screenshot"/>
-</p>
-
-<p align="center">
-  <a href="https://academic-assistant-rag-ouddaajucgs7vvr3ax44ww.streamlit.app/">
-    <img src="https://static.streamlit.io/badges/streamlit_badge_black_white.svg" alt="Streamlit App">
-  </a>
 </p>
 
 ---
@@ -24,15 +19,6 @@ Instead of simply forwarding prompts to an LLM, this platform orchestrates a com
 
 🔗 **Try the App Here:**  
 https://academic-assistant-rag-ouddaajucgs7vvr3ax44ww.streamlit.app/
-
----
-
-## 📸 Application Preview
-
-> Replace the image path below with your actual screenshot path.
-
-```md
-![AcaDocMine Preview](./assets/app-preview.png)
 
 ---
 
