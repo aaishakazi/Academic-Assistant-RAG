@@ -27,7 +27,7 @@ from langchain_text_splitters import RecursiveCharacterTextSplitter
 load_dotenv()
 
 # --- Page Config ---
-st.set_page_config(page_title="AcaDocMine AI", page_icon="🎓", layout="wide")
+st.set_page_config(page_title="Academic AI", page_icon="🎓", layout="wide")
 
 # --- 🎨 Custom CSS ---
 st.markdown("""
@@ -134,7 +134,7 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
-st.markdown('<div class="fixed-header"><h1 style="margin-left: 20px;">🎓 AcaDocMine AI</h1></div>', unsafe_allow_html=True)
+st.markdown('<div class="fixed-header"><h1 style="margin-left: 20px;">🎓 Academic AI</h1></div>', unsafe_allow_html=True)
 
 # --- ⚙️ Environment & Setup ---
 MONGO_CONN_STR = os.getenv("MONGO_CONNECTION_STRING")
