@@ -10,7 +10,11 @@ Instead of simply forwarding prompts to an LLM, this platform orchestrates a com
 ## 📸 Application Preview
 
 <p align="center">
-  <img src="./assets/app-preview.png" width="100%" alt="Academic AI Screenshot"/>
+  <img src="/assets/app-preview.png" width="100%" alt="Academic AI Screenshot"/>
+</p>
+
+<p align="center">
+  <video src="YOUR_UPLOADED_VIDEO_URL_HERE" width="100%" autoplay loop muted playsinline></video>
 </p>
 
 ---
