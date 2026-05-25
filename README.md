@@ -9,7 +9,7 @@ Instead of simply forwarding prompts to an LLM, this platform orchestrates a com
 ---
 
 <p align="center">
-  <img src="./assets/app-preview.png" width="100%" alt="AcaDocMine AI Screenshot"/>
+  <img src="./assets/app-preview.png" width="100%" alt="Academic AI Screenshot"/>
 </p>
 
 <p align="center">
@@ -23,7 +23,7 @@ Instead of simply forwarding prompts to an LLM, this platform orchestrates a com
 ## 🚀 Live Demo
 
 🔗 **Try the App Here:**  
-(https://academic-assistant-rag-ouddaajucgs7vvr3ax44ww.streamlit.app/)
+https://academic-assistant-rag-ouddaajucgs7vvr3ax44ww.streamlit.app/
 
 ---
 
