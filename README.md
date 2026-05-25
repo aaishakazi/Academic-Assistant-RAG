@@ -25,7 +25,7 @@ Instead of simply forwarding prompts to an LLM, this platform orchestrates a com
 🔗 **Try the App Here:**  
 <p align="center">
     <img src="" width="100%">
-    <a href="https://academic-assistant-rag-ouddaajucgs7vvr3ax44ww.streamlit.app/"></a>
+    [Streamlit App](https://academic-assistant-rag-ouddaajucgs7vvr3ax44ww.streamlit.app/)
 </p>
 
 
