@@ -5,12 +5,13 @@ import base64
 import uuid
 import PIL.Image
 from io import BytesIO
-from cleans import purge_expired_guest_files
+from functions import purge_expired_guest_files
 from dotenv import load_dotenv
 from datetime import datetime, timedelta, timezone
 from pymongo import MongoClient
 from supabase import create_client
 from streamlit_local_storage import LocalStorage
+from flashrank import Ranker, RerankRequest
 
 # LangChain Imports
 from langchain_google_genai import ChatGoogleGenerativeAI
@@ -21,6 +22,8 @@ from langchain_huggingface import HuggingFaceEmbeddings
 from langchain_classic.chains import ConversationalRetrievalChain
 from langchain_classic.memory import ConversationBufferWindowMemory
 from langchain_mongodb import MongoDBChatMessageHistory
+from langchain.retrievers import ContextualCompressionRetriever
+from langchain_community.document_compressors.flashrank import FlashRankRerank
 from langchain_community.document_loaders import PyPDFLoader
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 
@@ -147,6 +150,10 @@ def init_resources():
     db = client["academic_assistant"]
     vector_db = Chroma(persist_directory=DB_DIR, embedding_function=embeddings_model)
     return embeddings_model, db, vector_db
+
+@st.cache_resource
+def load_reranker():
+    return Ranker()
 
 @st.cache_resource
 def get_llm():
@@ -408,16 +415,33 @@ if final_user_id:
     llm = get_llm()
     ocr_llm = get_ocr_llm()
 
-    retriever = vector_db.as_retriever(
+    # retriever = vector_db.as_retriever(
+    #     search_kwargs={
+    #         "k": 3,
+    #         "filter": {"user_id": final_user_id}
+    #     }
+    # )
+
+    # qa_chain = ConversationalRetrievalChain.from_llm(
+    #     llm=llm,
+    #     retriever=retriever,
+    #     return_source_documents=True
+    # )
+    base_retriever = vector_db.as_retriever(
         search_kwargs={
-            "k": 3,
-            "filter": {"user_id": final_user_id}
-        }
+            "k": 10,  
+            "filter": {"user_id": final_user_id} })
+
+    compressor = FlashRankRerank(top_n=3)
+
+    advanced_retriever = ContextualCompressionRetriever(
+        base_compressor=compressor, 
+        base_retriever=base_retriever
     )
 
     qa_chain = ConversationalRetrievalChain.from_llm(
         llm=llm,
-        retriever=retriever,
+        retriever=advanced_retriever, 
         return_source_documents=True
     )
 

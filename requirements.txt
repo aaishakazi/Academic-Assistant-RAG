@@ -16,5 +16,6 @@ chromadb
 streamlit
 streamlit-local-storage
 supabase
+flashrank
 torch --index-url https://download.pytorch.org/whl/cpu
 torchvision --index-url https://download.pytorch.org/whl/cpu
