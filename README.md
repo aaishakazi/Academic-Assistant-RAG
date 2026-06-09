@@ -40,23 +40,33 @@ Instead of simply forwarding prompts to an LLM, this platform orchestrates a com
 [Semantic Chunking Engine]
         │
         ▼
-[Vector Embeddings Generation]
-        │
-        ▼
-[Supabase Vector Database (PGVector)]
-        ▲
-        │
-[User Query]
-        │
-        ▼
-[Semantic Similarity Search]
-        │
-        ▼
-[Retrieved Context Chunks]
-        │
-        ▼
-[Prompt Orchestration Layer]
-(Query + Context Injection)
+[Recursive Text Splitter] 
+       | 
+       ├──► Vectorization (Gemini-Embedding-2) ──► [Chroma Vector Store]
+       └──► Keyword Tokenization (BM25 Index)   ──► [Local Token Memory]
+                                                               │
+======================= RETRIEVAL PIPELINE =======================
+                                                               │
+[User Query] ──────────────────────────────────────────────────┤
+       │                                                       │
+       ├──► (Dense Retrieval) ──► Semantic Search (Top-10) ────┼──► [EnsembleRetriever]
+       └──► (Sparse Retrieval) ─► Keyword Matching (Top-10) ───┘         (Weights: 0.5 / 0.5)
+                                                                               │
+                                                                               ▼
+                                                                     [20 Candidate Chunks]
+                                                                               │
+                                                                               ▼
+                                                                     [Cross-Encoder Reranker]
+                                                                      (Deep Context Scoring)
+                                                                               │
+                                                                               ▼
+                                                                     [Top-3 Refined Chunks]
+                                                                               │
+======================== INFERENCE LAYER ========================
+                                                                               │
+                                                                               ▼
+[Prompt Orchestration Layer] ◄───────────────────────────────────────── Context Injection
+   (User Query + Context)
         │
         ▼
 [Groq / Gemini Inference]
@@ -144,7 +154,9 @@ This enables:
 - Custom responsive UI
 - Stateful session handling
 - Fragment-based rerender optimization
-
+- Vector / Text Retrievers: BM25Retriever, EnsembleRetriever (Hybrid Pipeline)
+- Layout Architecture: Streamlit UI Fragments (`@st.fragment`) for state-isolated rerendering
+  
 ---
 
 ## AI / ML Infrastructure
@@ -283,6 +295,24 @@ Retriever-level filtering ensures:
 - secure semantic retrieval
 - isolated RAG pipelines
 
+### 4. Overcoming "Blank-Page Friction" with On-The-Fly Contextual Feature Generation
+
+**The Problem:** When users open a clean chat session, a blank input field creates cognitive friction. Hardcoded sample prompts are generic and fail to adapt to specialized academic topics (e.g., highly technical network security notes vs. history textbooks). 
+
+**The Solution:** I engineered a dynamic context-aware feature generation layer using a dual-stage execution hook:
+1. When a clean session state (`chat_ui == []`) is initialized, the system isolates the target `user_id` and pulls a deterministic, low-latency sampling of text tokens out of the vector database.
+2. These raw tokens are structured into an isolated instruction prompt that forces the inference model (`Llama-3.3-70b`) to output a tightly restricted JSON string containing three custom, highly relevant, exam-style preview questions.
+3. The front-end captures this JSON array, parses it safe from markdown text formatting errors, and dynamically paints an interactive UI card layout. Clicking any card mirrors a programmatic chat form submission to bypass standard input lag.
+
+### 5. Fragmented State-Isolated Document Management
+
+**The Problem:** Streamlit’s native application model runs your entire script from top to bottom on any file interaction or button click. In a multi-document system, deleting or uploading a file would completely destroy the ongoing user conversation logs, break active LLM loops, or result in unnecessary double-read charges from database drivers.
+
+**The Solution:** I separated user interactions into logically decoupled micro-apps using Streamlit’s advanced `@st.fragment` rendering controls. 
+- The `upload_controls()` routine is isolated inside its own atomic processing thread.
+- When a document is dropped or deleted via the UI garbage bin button, only the sidebar context tree and local session variable lists run a state-refresh.
+- The underlying `EnsembleRetriever` receives a lightweight state tracking token change event, triggering a surgical update of cache states without reloading the heavy neural models or interrupting active main chat threads.
+
 ---
 
 # 🚀 Local Installation & Verification
@@ -367,19 +397,10 @@ streamlit run app.py
 - ⚡ Low-Latency Inference
 - 📄 Source Citation Tracking
 - 🔗 Direct PDF Source Navigation
+- 💡 Dynamic AI Study Cards: Automated, context-aware starter prompts generated directly from your uploaded document contents.
+- 🗂️ Multi-Document Library Manager: Full CRUD operations for document repositories with real-time vector detachment.
+- 🔀 Hybrid Ensemble Retrieval: Blends sparse (BM25) and dense semantic retrieval with structural isolation.
 
----
-
-# 📈 Future Roadmap
-
-- [ ] Hybrid Search (BM25 + Dense Retrieval)
-- [ ] Retrieval Visualization Graphs
-- [ ] Cross-Document Reasoning
-- [ ] Citation-Aware Responses
-- [ ] Streaming Token Generation
-- [ ] Fine-Tuned Academic Embedding Models
-- [ ] Adaptive Chunking Strategies
-- [ ] PDF Page-Level Deep Linking
 
 ---
 
