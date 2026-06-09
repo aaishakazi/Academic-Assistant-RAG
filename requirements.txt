@@ -1,6 +1,7 @@
-langchain
-langchain-core
+langchain==0.2.16
+langchain-core==0.2.16
 langchain-chroma
+langchain-classic
 langchain-community
 langchain-huggingface
 langchain-text-splitters
@@ -17,5 +18,8 @@ streamlit
 streamlit-local-storage
 supabase
 flashrank
+ragas 
+datasets
+rank-bm25
 torch --index-url https://download.pytorch.org/whl/cpu
 torchvision --index-url https://download.pytorch.org/whl/cpu

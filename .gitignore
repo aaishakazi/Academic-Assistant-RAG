@@ -6,6 +6,7 @@ __pycache__/
 
 # Local Databases 
 chroma_db/
+chroma_dbg/
 .chroma/
 *.db
 *.sqlite3

@@ -1,31 +1,53 @@
+print("Testing import: click")
 from click import prompt
+print("Testing import: streamlit")
 import streamlit as st
+print("Testing import: os, base64, uuid, PIL, BytesIO")
 import os
 import base64
 import uuid
 import PIL.Image
 from io import BytesIO
-from functions import purge_expired_guest_files
+print("Testing import: dotenv, datetime")
+from functions import purge_expired_guest_files, get_hybrid_retriever, get_suggested_prompts
+from eval import grade_answer
 from dotenv import load_dotenv
 from datetime import datetime, timedelta, timezone
+print("Testing import: mongoclient")
 from pymongo import MongoClient
+print("Testing import: supabase")
 from supabase import create_client
+print("Testing import: streamlit_local_storage")
 from streamlit_local_storage import LocalStorage
-from flashrank import Ranker, RerankRequest
+print("testing import: sentence_transformers")
+# from sentence_transformers import CrossEncoder
+# from flashrank import Ranker, RerankRequest
 
 # LangChain Imports
-from langchain_google_genai import ChatGoogleGenerativeAI
+print("Testing import: langchain modules")
+from langchain_google_genai import ChatGoogleGenerativeAI, GoogleGenerativeAIEmbeddings
 from langchain_groq import ChatGroq
 from langchain_chroma import Chroma
+print("Testing import: messages,langchain_huggingface")
 from langchain_core.messages import HumanMessage, AIMessage
 from langchain_huggingface import HuggingFaceEmbeddings
-from langchain_classic.chains import ConversationalRetrievalChain
-from langchain_classic.memory import ConversationBufferWindowMemory
+print("Testing import: langchain_classic.chain module")
+# from langchain.chains import ConversationalRetrievalChain
+from langchain.chains import create_history_aware_retriever, create_retrieval_chain
+from langchain.chains.combine_documents import create_stuff_documents_chain
+from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
+print("Testing import: langchain_classic.memory")
+from langchain.memory import ConversationBufferWindowMemory
+print("Testing import: langchain retrievers")
+from langchain.retrievers import EnsembleRetriever
+from langchain.retrievers.document_compressors import CrossEncoderReranker
+from langchain_community.retrievers import BM25Retriever
+print("mongodb, document loaders, text splitters")
 from langchain_mongodb import MongoDBChatMessageHistory
-from langchain.retrievers import ContextualCompressionRetriever
-from langchain_community.document_compressors.flashrank import FlashRankRerank
+from langchain_core.documents import Document
 from langchain_community.document_loaders import PyPDFLoader
 from langchain_text_splitters import RecursiveCharacterTextSplitter
+print("✅ All imports successful. Starting app...")
 
 load_dotenv()
 
@@ -65,7 +87,7 @@ st.markdown("""
             height: 100vh;
             padding-bottom: 5px !important;
         }  
-         
+        
         # /* Ensure the sidebar container uses the full height and flex layout */
         # [data-testid="stSidebarUserContent"] > div:first-child {
         #     display: flex;
@@ -103,7 +125,28 @@ st.markdown("""
         .custom-caption-link:hover {
             color: #FE2F4A !important;
         }
- 
+
+        div[data-baseweb="tab-list"] {
+            height: 50px;
+            gap: 40px;   
+            border-bottom: 2px solid #2D313E !important;
+        }
+            
+        button[data-baseweb="tab"] {
+            font-size: 17px !important;      
+            font-weight: 600 !important;      /* Makes the font bold and crisp */
+            height: 100% !important; 
+            padding-top: 10px !important;
+            padding-left: 20px !important;    
+            padding-right: 20px !important;  
+            letter-spacing: 0.5px;           
+        }
+        
+        /* Fix inner text positioning inside the button wrapper */
+        button[data-baseweb="tab"] div {
+            font-size: inherit !important;  /* Ensure child div elements inherit the 17px rule */
+        }
+
         [data-testid="stChatMessage"]:has([data-testid="stChatMessageAvatarUser"]) {
             flex-direction: row-reverse;
             margin-left: auto;
@@ -142,18 +185,26 @@ st.markdown('<div class="fixed-header"><h1 style="margin-left: 20px;">🎓 Acade
 # --- ⚙️ Environment & Setup ---
 MONGO_CONN_STR = os.getenv("MONGO_CONNECTION_STRING")
 DB_DIR = "./chroma_db"
+DBG_DIR = "./chroma_dbg"
 
 @st.cache_resource(show_spinner=False)
 def init_resources():
-    embeddings_model = HuggingFaceEmbeddings(model_name="all-MiniLM-L6-v2")
-    client = MongoClient(MONGO_CONN_STR)
+    print("Initializing resources...")
+    # embeddings_model = HuggingFaceEmbeddings(model_name="all-MiniLM-L6-v2")
+    embeddings_model = GoogleGenerativeAIEmbeddings(
+        model="models/gemini-embedding-2",
+        google_api_key=os.getenv("GOOGLE_API_KEY"))
+    print("HF model loaded")
+    client = MongoClient(MONGO_CONN_STR, serverSelectionTimeoutMS=5000) 
+    print("MongoDB client initialized")
     db = client["academic_assistant"]
-    vector_db = Chroma(persist_directory=DB_DIR, embedding_function=embeddings_model)
+    vector_db = Chroma(persist_directory=DBG_DIR, embedding_function=embeddings_model)
+    print("Chroma vector store initialized")
     return embeddings_model, db, vector_db
 
-@st.cache_resource
-def load_reranker():
-    return Ranker()
+@st.cache_resource(show_spinner=False)
+def cached_hybrid_retriever(user_id, _vector_db, token):
+    return get_hybrid_retriever(user_id, _vector_db, token)
 
 @st.cache_resource
 def get_llm():
@@ -166,16 +217,19 @@ def get_llm():
 def get_ocr_llm():
     return ChatGoogleGenerativeAI(
         model="gemini-2.5-flash",
-        google_api_key=os.getenv("GOOGLE_API_KEY")
-    )
+        google_api_key=os.getenv("GOOGLE_API_KEY"))
 
 supabase = create_client(
     os.getenv("SUPABASE_URL"),
-    os.getenv("SUPABASE_KEY")
+    os.getenv("SUPABASE_SERVICE_KEY")
 )
 
 with st.spinner("Initializing.."): 
-    embeddings, db, vector_db = init_resources()
+    try:
+        embeddings, db, vector_db = init_resources()
+    except Exception as e:
+        st.error(f"Failed to initialize resources: {e}")
+        st.stop()
 users_collection = db["users"]
 history_collection = db["chat_history"]
 localS = LocalStorage()
@@ -258,9 +312,13 @@ with st.sidebar:
             with button_placeholder:
                 with st.popover(f"Account Options", type="primary", use_container_width=True):
                     if st.button("🚪 Logout", use_container_width=True):
-                        localS.deleteItem("saved_user", key="s_u_l")
-                        localS.deleteItem("saved_pass", key="s_p_l")
-                        localS.deleteAll(key="logout_clear")
+                        if localS:
+                            try:
+                                localS.deleteItem("saved_user", key="s_u_l")
+                                localS.deleteItem("saved_pass", key="s_p_l")
+                                localS.deleteAll(key="logout_clear")
+                            except Exception:
+                                pass
                         keys_to_flush = [
                             "just_logged_in_user", "just_logged_in_pass", "is_verified", 
                             "chat_user", "chat_ui", "chat_loaded", "msgs", "processed_files"
@@ -295,8 +353,13 @@ with st.sidebar:
                         if existing:
                             stored_p = existing.get("passcode")
                             if stored_p == p_input:
-                                localS.setItem("saved_user", u_input, key="s_u_l")
-                                localS.setItem("saved_pass", p_input, key="s_p_l")
+                                if existing and existing.get("passcode") == p_input:
+                                    if localS:
+                                        try:
+                                            localS.setItem("saved_user", u_input, key="s_u_l")
+                                            localS.setItem("saved_pass", p_input, key="s_p_l")
+                                        except Exception:
+                                            pass
                                 st.session_state["just_logged_in_user"] = u_input
                                 st.session_state["just_logged_in_pass"] = p_input
                                 st.rerun()
@@ -343,7 +406,7 @@ with st.sidebar:
     st.markdown('</div>', unsafe_allow_html=True)
 
     with sidebar_spacer_placeholder:
-        h = 50 if auth_status == "unauthorized" else 300
+        h = 50 if auth_status == "unauthorized" else 200
         st.container(height=h, border=False)
 
     if auth_status == "unauthorized":
@@ -410,10 +473,30 @@ if final_user_id:
             else:
                 st.session_state.processed_files = []
 
+    if "file_change_token" not in st.session_state:
+        st.session_state.file_change_token = 0
+
+    if "current_page" not in st.session_state:
+        st.session_state.current_page = "chat"
+
+    retriever = cached_hybrid_retriever(final_user_id, vector_db, st.session_state.file_change_token)
 
     # --- 🤖 LLM Setup ---
     llm = get_llm()
     ocr_llm = get_ocr_llm()
+
+    contextualize_q_prompt = ChatPromptTemplate.from_messages([
+        ("system", "Given a chat history and the latest user question which might reference context in the chat history, formulate a standalone question which can be understood without the chat history. Do NOT answer the question, just reformulate it if needed, otherwise return it as is."),
+        MessagesPlaceholder(variable_name="chat_history"),
+        ("human", "{input}"),
+    ])
+
+    # QA prompt: answers based on retrieved documents
+    qa_prompt = ChatPromptTemplate.from_messages([
+        ("system", "You are an AI assistant for academic notes. Answer the user's question based on the following retrieved context. If the answer is not in the context, say 'I don't have information about that in your notes.'\n\nContext: {context}"),
+        MessagesPlaceholder(variable_name="chat_history"),
+        ("human", "{input}"),
+    ])
 
     # retriever = vector_db.as_retriever(
     #     search_kwargs={
@@ -422,28 +505,18 @@ if final_user_id:
     #     }
     # )
 
+    # Create history-aware retriever
+    history_aware_retriever = create_history_aware_retriever(
+        llm, retriever, contextualize_q_prompt)
+    question_answer_chain = create_stuff_documents_chain(llm, qa_prompt)
+    rag_chain = create_retrieval_chain(history_aware_retriever, question_answer_chain)
+
+   
     # qa_chain = ConversationalRetrievalChain.from_llm(
     #     llm=llm,
-    #     retriever=retriever,
+    #     retriever=advanced_retriever, 
     #     return_source_documents=True
     # )
-    base_retriever = vector_db.as_retriever(
-        search_kwargs={
-            "k": 10,  
-            "filter": {"user_id": final_user_id} })
-
-    compressor = FlashRankRerank(top_n=3)
-
-    advanced_retriever = ContextualCompressionRetriever(
-        base_compressor=compressor, 
-        base_retriever=base_retriever
-    )
-
-    qa_chain = ConversationalRetrievalChain.from_llm(
-        llm=llm,
-        retriever=advanced_retriever, 
-        return_source_documents=True
-    )
 
     @st.fragment
     def upload_controls():
@@ -495,7 +568,7 @@ if final_user_id:
                         finally:
                             if os.path.exists(tempf_path):
                                 os.remove(tempf_path) 
-                             
+                            
                         new_file_entry = {"name": uploaded_file.name, "url": file_path}
                         if auth_status != "guest":
                             users_collection.update_one(
@@ -504,6 +577,8 @@ if final_user_id:
                             )
                         st.session_state.processed_files.append(new_file_entry)
 
+                    # After successful upload/delete:
+                    st.session_state.file_change_token += 1
                     st.toast(f"✅ {len(new_files)} files added!", icon='📚')
                     with sidebar_spacer_placeholder:
                         st.container(height=50, border=False)
@@ -589,6 +664,7 @@ if final_user_id:
                                 {"$pull": {"files": {"name": name}}}
                             )
                         st.session_state.uploader_key += 1
+                        st.session_state.file_change_token += 1 # Triggering retriever cache refresh
                         st.toast(f"Deleted {name}")
                         st.rerun()
 
@@ -603,7 +679,6 @@ if final_user_id:
                 with st.spinner("Detecting text..."):
                     question = get_image_text_efficiently(uploaded_image)
                     st.success("✅ Question Detected!")
-                    # st.info(f"**Extracted:** {question}")
                     st.session_state.chat_ui.append({
                         "role": "human",
                         "content": question,
@@ -612,9 +687,14 @@ if final_user_id:
 
 
                 with st.spinner("Searching your notes..."):
-                    hist = memory.load_memory_variables({})["chat_history"]
-                    response = qa_chain.invoke({"question": question,
-                        "chat_history": hist})
+                    # hist = memory.load_memory_variables({})["chat_history"]
+                    # response = qa_chain.invoke({"question": question,
+                    #     "chat_history": hist})
+                    chat_history = msgs.messages 
+                    response = rag_chain.invoke({
+                        "input": question,
+                        "chat_history": chat_history
+                    })
 
                     # Saving sources in metadata 
                     source_meta = []
@@ -623,7 +703,7 @@ if final_user_id:
 
                     # Check if the answer seems to be based on the docs
                     if not any(phrase in answer_lower for phrase in no_info_phrases):
-                        for d in response.get("source_documents", []):
+                        for d in response.get("context", []):
                             file_name = d.metadata.get('source', 'Unknown')
                             file_data = next(
                                 (f for f in st.session_state.processed_files if f["name"] == file_name
@@ -668,15 +748,42 @@ if final_user_id:
 
             # ---------- RENDER CHAT HISTORY ----------
             with chat_container:
-                for msg in st.session_state.chat_ui:
-                    with st.chat_message(msg["role"]):
-                        st.write(msg["content"])
-                        if msg["role"] == "ai" and msg.get("sources"):
-                            with st.expander("📚 View Sources"):
-                                for s in msg["sources"]:
-                                    file_path = f"{s['url']}#page={s['page']}"
-                                    st.markdown(f'📄 <a href="{file_path}" target="_blank">**{s["file"]}** (Page {s["page"]})</a>', unsafe_allow_html=True)
-                                    st.caption(f"{s['text']}...")
+                # SHOW STARTER CARDS IF CHAT LOG IS EMPTY
+                if not st.session_state.chat_ui:
+                    st.markdown("<div style='height: 40px;'></div>", unsafe_allow_html=True)
+                    st.markdown("<h4 style='text-align: center; color: #8E93A6;'>💡 Tap a starter card to begin studying:</h4>", unsafe_allow_html=True)
+                    
+                    # Fetch prompts dynamically
+                    prompts = get_suggested_prompts(llm, vector_db, final_user_id)
+                    
+                    # Render cards using columns side by side
+                    card_cols = st.columns(3)
+                    selected_prompt = None
+                    
+                    for idx, prompt_text in enumerate(prompts):
+                        with card_cols[idx]:
+                            # Style each card option beautifully inside a bordered area
+                            with st.container(border=True):
+                                st.markdown(f"<p style='font-size:14px; min-height:55px; margin-bottom:10px;'><b>{prompt_text}</b></p>", unsafe_allow_html=True)
+                                if st.button("🚀 Ask AI", key=f"starter_card_{idx}", use_container_width=True, type="secondary"):
+                                    selected_prompt = prompt_text
+                    
+                    # If a card was triggered, programmatically set it as a query submit execution
+                    if selected_prompt:
+                        st.session_state["card_submit_query"] = selected_prompt
+                        st.rerun()
+
+                # Otherwise, render standard chat text histories
+                else:
+                    for msg in st.session_state.chat_ui:
+                        with st.chat_message(msg["role"]):
+                            st.write(msg["content"])
+                            if msg["role"] == "ai" and msg.get("sources"):
+                                with st.expander("📚 View Sources"):
+                                    for s in msg["sources"]:
+                                        file_path = f"{s['url']}#page={s['page']}"
+                                        st.markdown(f'📄 <a href="{file_path}" target="_blank">**{s["file"]}** (Page {s["page"]})</a>', unsafe_allow_html=True)
+                                        st.caption(f"{s['text']}...")
 
                 if st.session_state.chat_ui:
                     st.markdown(
@@ -697,27 +804,33 @@ if final_user_id:
                     )
 
             # ---------- CHAT INPUT ----------
-            if prompt := st.chat_input("Ask a question from your notes..."):
-                
+            prompt = st.chat_input("Ask a question from your notes...")
+            
+            # Check if a starter card clicked triggered a queued submit execution
+            if "card_submit_query" in st.session_state:
+                prompt = st.session_state.pop("card_submit_query")
+
+            if prompt:
                 with chat_container:
                     with st.chat_message("human"):
                         st.write(prompt)
 
-                # Append to UI cache right away
-                st.session_state.chat_ui.append({
-                    "role": "human",
-                    "content": prompt,
-                    "sources": []
-                })
+                st.session_state.chat_ui.append({"role": "human", "content": prompt, "sources": []})
 
                 # Force assistant message to render inside the scrollable view
                 with chat_container:
                     with st.chat_message("assistant"):
                         with st.spinner("Searching the docs..."):
-                            hist = memory.load_memory_variables({})["chat_history"]
-                            response = qa_chain.invoke({
-                                "question": prompt,
-                                "chat_history": hist
+                            # hist = memory.load_memory_variables({})["chat_history"]
+                            # response = qa_chain.invoke({
+                            #     "question": prompt,
+                            #     "chat_history": hist
+                            # })
+
+                            chat_history = msgs.messages  
+                            response = rag_chain.invoke({
+                                "input": prompt,
+                                "chat_history": chat_history
                             })
                             answer = response["answer"]
                             st.write(answer)
@@ -728,7 +841,7 @@ if final_user_id:
                             answer_lower = response["answer"].lower()
 
                             if not any(phrase in answer_lower for phrase in no_info_phrases):
-                                for d in response.get("source_documents", []):
+                                for d in response.get("context", []):
                                     file_name = d.metadata.get('source', 'Unknown')
                                     file_data = next((f for f in st.session_state.processed_files if f["name"] == file_name), None)
                                     file_url = file_data["url"] if file_data else ""
@@ -760,3 +873,102 @@ if final_user_id:
                             msgs.add_message(AIMessage(content=answer, additional_kwargs={"metadata": meta}))
     # Run fragment
     render_chat()
+
+    # --- 📊 EVALUATION DASHBOARD FRAGMENT ---
+    # @st.fragment
+    # def render_evaluation_dashboard():
+    #     st.subheader("📊 RAG System Accuracy Audit")
+    #     st.write("This diagnostic test runs your RAG pipeline through benchmark exam questions to evaluate generation accuracy.")
+        
+    #     # Define evaluation data matching your uploaded documents
+    #     EVAL_DATASET = [
+    #         {
+    #             "query": "Explain how an organization can ensure its systems are up and running even during peak traffic hours.",
+    #             "ground_truth": "Organizations utilize backup systems, firewalls, and anti-DDoS protections to maintain availability, ensuring websites like online shopping portals remain online to serve customers during peak sales periods."
+    #         },
+    #         {
+    #             "query": "What security principle ensures that user permissions are validated at every single resource request?",
+    #             "ground_truth": "Complete mediation is the security principle stating that every time a user requests a resource, the system must verify authorization and not trust previous permissions by default."
+    #         },
+    #         {
+    #             "query": "What are stack canaries and ASLR used for?",
+    #             "ground_truth": "Stack canaries and address space layout randomization (ASLR) are memory protection mechanisms used by developers to protect software applications against buffer overflow attacks."
+    #         },
+    #         {
+    #             "query": "How do IPSec and SSL/TLS differ in terms of the network layer they operate on and their primary use cases?",
+    #             "ground_truth": "IPSec operates at the network layer to provide secure communication across IP networks (commonly used in VPNs), whereas SSL/TLS operates at the transport layer to encrypt communication between a web browser and a web server via HTTPS."
+    #         }
+    #     ]
+
+    #     if st.button("🚀 Start Diagnostic Suite", type="primary"):
+    #         progress_bar = st.progress(0.0)
+    #         status_text = st.empty()
+            
+    #         scores = []
+    #         detailed_results = []
+    #         total_tests = len(EVAL_DATASET)
+            
+    #         for index, test in enumerate(EVAL_DATASET):
+    #             query = test["query"]
+    #             ground_truth = test["ground_truth"]
+                
+    #             status_text.markdown(f"⏳ **Processing ({index+1}/{total_tests}):** *\"{query[:40]}...\"*")
+                
+    #             # Run through your live RAG chain
+    #             response = rag_chain.invoke({
+    #                 "input": query,
+    #                 "chat_history": [] # Blank context for evaluation purity
+    #             })
+    #             generated_answer = response["answer"]
+                
+    #             # Grade the response via LLM-as-a-judge
+    #             score, reasoning = grade_answer(llm, query, ground_truth, generated_answer)
+    #             scores.append(score)
+                
+    #             detailed_results.append({
+    #                 "query": query,
+    #                 "generated": generated_answer,
+    #                 "ground_truth": ground_truth,
+    #                 "score": score,
+    #                 "reasoning": reasoning
+    #             })
+                
+    #             progress_bar.progress((index + 1) / total_tests)
+                
+    #         status_text.success("✅ Evaluation Diagnostics Complete!")
+            
+    #         # Compute Metrics
+    #         avg_score = sum(scores) / len(scores)
+    #         accuracy_percentage = (avg_score / 5.0) * 100
+            
+    #         st.markdown("---")
+    #         col1, col2 = st.columns(2)
+    #         with col1:
+    #             st.metric(
+    #                 label="Overall System Accuracy", 
+    #                 value=f"{accuracy_percentage:.1f}%", 
+    #                 delta="Optimal" if accuracy_percentage >= 80 else "Needs Tuning"
+    #             )
+    #         with col2:
+    #             st.metric(
+    #                 label="Average GPA Rating", 
+    #                 value=f"{avg_score:.2f} / 5.0"
+    #             )
+                
+    #         # Question breakdown accordion layout
+    #         st.subheader("📝 Granular Question Breakdown")
+    #         for res in detailed_results:
+    #             emoji = "🟢" if res["score"] >= 4 else "🟡" if res["score"] == 3 else "🔴"
+    #             with st.expander(f"{emoji} Q: {res['query']}"):
+    #                 st.markdown(f"**🤖 System Output:**\n*{res['generated']}*")
+    #                 st.markdown(f"**🎯 Expected Ground Truth:**\n*{res['ground_truth']}*")
+    #                 st.markdown(f"**🏅 Score:** `{res['score']}/5` — *{res['reasoning']}*")
+    
+
+    # tab_chat, tab_metrics = st.tabs(["💬 Virtual Assistant Chat", "📊 RAG Performance Audit"])
+    
+    # with tab_chat:
+    #     render_chat()
+        
+    # with tab_metrics:
+    #     render_evaluation_dashboard()
